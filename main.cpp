@@ -55,7 +55,7 @@ vector<vector<uint64_t>> preparinngTransactionsFormal(PVWpk &pk,
 
 // Phase 1, obtaining PV's
 Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext> &SICPVW, vector<Ciphertext> switchingKey, const RelinKeys &relin_keys,
-                                            const GaloisKeys &gal_keys, const size_t &degree, const SEALContext &context, const PVWParam &params, const int numOfTransactions)
+                                            const GaloisKeys &gal_keys, const size_t &degree, const SEALContext &context, const PVWParam &params, const int numOfTransactions, const int core, const int batch)
 {
     Evaluator evaluator(context);
 
@@ -68,7 +68,7 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext> &SICPVW, vecto
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "computeBplusASPVWOptimized running time: " << time_diff.count() << "us."
-         << "\n";
+         << " core: " << core << " batch: " << batch;
 
     int rangeToCheck = 850; // range check is from [-rangeToCheck, rangeToCheck-1]
     time_start = chrono::high_resolution_clock::now();
@@ -76,7 +76,7 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext> &SICPVW, vecto
     time_end = chrono::high_resolution_clock::now();
     time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
     cout << "newRangeCheckPVW running time: " << time_diff.count() << "us."
-         << "\n";
+         << " core: " << core << " batch: " << batch;
 
     return packedSIC[0];
 }
@@ -85,7 +85,7 @@ Ciphertext serverOperations1obtainPackedSIC(vector<PVWCiphertext> &SICPVW, vecto
 void serverOperations2therest(Ciphertext &lhs, vector<vector<int>> &bipartite_map, Ciphertext &rhs,
                               Ciphertext &packedSIC, const vector<vector<uint64_t>> &payload, const RelinKeys &relin_keys, const GaloisKeys &gal_keys,
                               const size_t &degree, const SEALContext &context, const SEALContext &context2, const PVWParam &params, const int numOfTransactions,
-                              int &counter, const int payloadSize = 306)
+                              int &counter, const int core, const int batch, const int core, const int batch, const int payloadSize = 306)
 {
 
     Evaluator evaluator(context);
@@ -103,7 +103,7 @@ void serverOperations2therest(Ciphertext &lhs, vector<vector<int>> &bipartite_ma
         time_end = chrono::high_resolution_clock::now();
         time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
         cout << "\expandedSIC running time: " << time_diff.count() << "us."
-             << "\n";
+             << " core: " << core << " batch: " << batch;
 
         // transform to ntt form for better efficiency especially for the last two steps
         for (size_t j = 0; j < expandedSIC.size(); j++)
@@ -116,7 +116,7 @@ void serverOperations2therest(Ciphertext &lhs, vector<vector<int>> &bipartite_ma
         time_end = chrono::high_resolution_clock::now();
         time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
         cout << "deterministicIndexRetrieval running time: " << time_diff.count() << "us."
-             << "\n";
+             << " core: " << core << " batch: " << batch;
 
         // step 3-4. multiply weights and pack them
         // The following two steps are for streaming updates
@@ -128,7 +128,7 @@ void serverOperations2therest(Ciphertext &lhs, vector<vector<int>> &bipartite_ma
         time_end = chrono::high_resolution_clock::now();
         time_diff = chrono::duration_cast<chrono::microseconds>(time_end - time_start);
         cout << "payload packing running time: " << time_diff.count() << "us."
-             << "\n";
+             << " core: " << core << " batch: " << batch;
     }
     if (lhs.is_ntt_form())
         evaluator.transform_from_ntt_inplace(lhs);
@@ -738,7 +738,7 @@ void OMR2()
             chrono::high_resolution_clock::time_point time_start_p2, time_end_p2;
             chrono::microseconds time_diff_p2;
             packedSICfromPhase1[i][j] = serverOperations1obtainPackedSIC(SICPVW_multicore[i], switchingKey, relin_keys, gal_keys,
-                                                                         poly_modulus_degree, context, params, poly_modulus_degree);
+                                                                         poly_modulus_degree, context, params, poly_modulus_degree, i, j);
             time_end_p2 = chrono::high_resolution_clock::now();
             time_diff_p2 = chrono::duration_cast<chrono::microseconds>(time_end_p2 - time_start_p2);
             cout << "Phase 1, Core " << i << ", Batch " << j << " running time : " << time_diff_p2.count() << "us." endl;
@@ -777,7 +777,7 @@ void OMR2()
             time_start_p2 = chrono::high_resolution_clock::now();
             serverOperations2therest(templhs, bipartite_map[i], temprhs,
                                      packedSICfromPhase1[i][j], payload_multicore[i], relin_keys, gal_keys_next,
-                                     poly_modulus_degree, context_next, context_last, params, poly_modulus_degree, counter[i]);
+                                     poly_modulus_degree, context_next, context_last, params, poly_modulus_degree, counter[i], i, j);
             time_end_p2 = chrono::high_resolution_clock::now();
             time_diff_p2 = chrono::duration_cast<chrono::microseconds>(time_end_p2 - time_start_p2);
             cout << "Phase 2-3, Core " << i << ", Batch " << j << " running time : " << time_diff_p2.count() << "us." endl;
